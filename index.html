@@ -247,15 +247,16 @@
 </div>
 
 <script>
-    // ⬇️ আপনার Firebase Config এবং Database URL দেওয়া হলো ⬇️
+    // ⬇️ আপনার প্রজেক্টের আসল Firebase Config ⬇️
     const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "perfume-haul-default-rtdb.firebaseapp.com",
-        databaseURL: "https://perfume-haul-default-rtdb.firebaseio.com/",
-        projectId: "perfume-haul-default-rtdb",
-        storageBucket: "perfume-haul-default-rtdb.appspot.com",
-        messagingSenderId: "YOUR_MESSAGING_ID",
-        appId: "YOUR_APP_ID"
+        apiKey: "AIzaSyAdhka8z_f3MOYGzA2eEieeyy4s6ak9e4M",
+        authDomain: "perfume-haul.firebaseapp.com",
+        databaseURL: "https://perfume-haul-default-rtdb.firebaseio.com",
+        projectId: "perfume-haul",
+        storageBucket: "perfume-haul.firebasestorage.app",
+        messagingSenderId: "240084154438",
+        appId: "1:240084154438:web:fdb26d525be4d053c8b247",
+        measurementId: "G-EHTFK4YDBY"
     };
 
     // Firebase ইনিশিয়ালাইজেশন
@@ -265,7 +266,7 @@
     let collection = [];
     let currentFilter = 'All';
 
-    // Realtime Database থেকে সিঙ্ক করা
+    // Realtime Database থেকে সিঙ্ক করা (perfumes_vault নোড থেকে)
     db.ref('perfumes_vault').on('value', (snapshot) => {
         collection = [];
         const data = snapshot.val();
