@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Luxury Perfume Vault</title>
+    <title>My Cloud Perfume Vault</title>
+
+    <!-- Firebase App & Realtime Database SDK (Compat Libraries) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
     <style>
         :root {
             --primary: #0f172a;
@@ -30,7 +35,6 @@
             margin-bottom: 20px;
         }
 
-        /* Stats & Summary Bar */
         .summary-bar {
             display: flex;
             justify-content: space-between;
@@ -48,7 +52,6 @@
         .stat-item span { display: block; font-size: 13px; color: #cbd5e1; }
         .stat-item strong { font-size: 20px; color: var(--accent); }
 
-        /* Input Controls */
         .add-box {
             display: flex; gap: 10px; margin-bottom: 20px;
             background: var(--card-bg); padding: 15px; border-radius: 8px;
@@ -72,7 +75,13 @@
 
         button:hover { background-color: var(--accent); color: black; }
 
-        /* Filter Tabs */
+        .btn-danger {
+            background-color: #ef4444; margin-top: 5px;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626; color: white;
+        }
+
         .filter-container { display: flex; gap: 10px; margin-bottom: 20px; }
         .filter-btn {
             background: #e2e8f0; color: #334155; padding: 8px 16px;
@@ -81,7 +90,6 @@
         }
         .filter-btn.active { background: var(--primary); color: white; }
 
-        /* Perfume Cards */
         .perfume-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px;
         }
@@ -120,7 +128,6 @@
             border-radius: 4px; margin-right: 4px; margin-bottom: 4px;
         }
 
-        /* Modal Details */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000;
@@ -157,9 +164,8 @@
 <body>
 
 <div class="container">
-    <h1>✨ Perfume Vault & Smart Analytics</h1>
+    <h1>☁️ Perfume Vault & Smart Analytics (Realtime DB)</h1>
 
-    <!-- Summary / Total Bar -->
     <div class="summary-bar">
         <div class="stat-item">
             <span>মোট পারফিউম</span>
@@ -179,7 +185,6 @@
         </div>
     </div>
     
-    <!-- Input Form -->
     <div class="add-box">
         <input type="text" id="perfumeInput" class="input-name" placeholder="পারফিউমের নাম (যেমন: Sauvage, Club de Nuit Intense)...">
         <input type="number" id="priceInput" class="input-price" placeholder="কেনা দাম (৳)...">
@@ -188,10 +193,9 @@
             <option value="Designer">Designer</option>
             <option value="Clone / Dupe">Clone / Dupe</option>
         </select>
-        <button onclick="addPerfume()">Add Perfume</button>
+        <button onclick="addPerfume()">Add to Cloud</button>
     </div>
 
-    <!-- Filter Buttons -->
     <div class="filter-container">
         <button class="filter-btn active" onclick="filterCategory('All', this)">All</button>
         <button class="filter-btn" onclick="filterCategory('Niche', this)">Niche</button>
@@ -202,7 +206,6 @@
     <div class="perfume-grid" id="perfumeGrid"></div>
 </div>
 
-<!-- Details Modal -->
 <div class="modal" id="detailsModal">
     <div class="modal-content">
         <span class="close-btn" onclick="closeModal()">&times;</span>
@@ -212,7 +215,6 @@
             <strong>আপনার কেনা মূল্য:</strong> <span id="modalPrice" style="color: #047857; font-weight: bold;"></span>
         </p>
 
-        <!-- Local BD Shops Live Pricing & Verification -->
         <div class="section-box">
             <strong style="color: #0f172a; font-size: 14px;">🛍️ BD Local Shops Pricing Search:</strong>
             <div class="shop-links" id="modalShopLinks" style="margin-top: 5px;"></div>
@@ -223,13 +225,11 @@
             <span id="modalDupeOf" style="display:block; color: #d97706; font-size: 14px; margin-top: 4px;"></span>
         </p>
 
-        <!-- Where & When Best to Use (Occasions) -->
         <div class="section-box" style="background: #fffbe2; border-color: #fef08a;">
             <strong style="display:block; margin-bottom: 6px; color: #854d0e;">📍 ব্যবহারের সেরা জায়গা ও সময় (Occasions & Environment):</strong>
             <div id="modalOccasions"></div>
         </div>
         
-        <!-- Seasons Section -->
         <div class="section-box">
             <strong style="display:block; margin-bottom: 8px; color: #0f172a;">
                 📅 সেরা ঋতু ও মাস (Fragrantica Data):
@@ -247,8 +247,35 @@
 </div>
 
 <script>
-    let collection = JSON.parse(localStorage.getItem('myPerfumesVaultBD')) || [];
+    // ⬇️ আপনার Firebase Config এবং Database URL দেওয়া হলো ⬇️
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "perfume-haul-default-rtdb.firebaseapp.com",
+        databaseURL: "https://perfume-haul-default-rtdb.firebaseio.com/",
+        projectId: "perfume-haul-default-rtdb",
+        storageBucket: "perfume-haul-default-rtdb.appspot.com",
+        messagingSenderId: "YOUR_MESSAGING_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    // Firebase ইনিশিয়ালাইজেশন
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let collection = [];
     let currentFilter = 'All';
+
+    // Realtime Database থেকে সিঙ্ক করা
+    db.ref('perfumes_vault').on('value', (snapshot) => {
+        collection = [];
+        const data = snapshot.val();
+        if (data) {
+            Object.keys(data).forEach((key) => {
+                collection.push({ id: key, ...data[key] });
+            });
+        }
+        renderCollection();
+    });
 
     function updateSummary() {
         const totalCount = collection.length;
@@ -277,8 +304,7 @@
             if(item.type === 'Niche') badgeClass = 'badge-niche';
             if(item.type === 'Clone / Dupe') badgeClass = 'badge-clone';
 
-            // Top Best Occasions
-            const occHtml = item.occasions.map(o => `<span class="occ-badge">${o}</span>`).join('');
+            const occHtml = (item.occasions || []).map(o => `<span class="occ-badge">${o}</span>`).join('');
 
             grid.innerHTML += `
                 <div class="perfume-card">
@@ -288,9 +314,12 @@
                         ${item.dupeOf ? `<div style="font-size:12px; color:#d97706; font-weight:bold; margin-bottom:5px;">🔄 Clone of: ${item.dupeOf}</div>` : ''}
                         <div class="price-tag">💰 ৳ ${Number(item.priceNumber).toLocaleString('bn-BD')}</div>
                         <div style="margin-bottom:8px;">${occHtml}</div>
-                        <div style="font-size:12px; color:#64748b; margin-bottom:12px;">🌤️ Best Season: <b>${item.bestSeason}</b></div>
+                        <div style="font-size:12px; color:#64748b; margin-bottom:12px;">🌤️ Best Season: <b>${item.bestSeason || 'N/A'}</b></div>
                     </div>
-                    <button onclick="showDetails(${actualIndex})">DETAILS</button>
+                    <div>
+                        <button onclick="showDetails(${actualIndex})" style="width:100%;">DETAILS</button>
+                        <button onclick="deletePerfume('${item.id}')" class="btn-danger" style="width:100%;">Remove</button>
+                    </div>
                 </div>
             `;
         });
@@ -311,12 +340,23 @@
 
         const perfumeData = fetchFragranticaDetails(name, priceNumber, type);
         
-        collection.push(perfumeData);
-        localStorage.setItem('myPerfumesVaultBD', JSON.stringify(collection));
-        
-        nameInput.value = '';
-        priceInput.value = '';
-        renderCollection();
+        try {
+            await db.ref('perfumes_vault').push(perfumeData);
+            nameInput.value = '';
+            priceInput.value = '';
+        } catch (error) {
+            alert("Error saving to Database: " + error.message);
+        }
+    }
+
+    async function deletePerfume(key) {
+        if(confirm("আপনি কি নিশ্চিত যে এই পারফিউমটি ডাটাবেস থেকে মুছে ফেলতে চান?")) {
+            try {
+                await db.ref('perfumes_vault/' + key).remove();
+            } catch (error) {
+                alert("Error deleting item: " + error.message);
+            }
+        }
     }
 
     function filterCategory(category, btnElement) {
@@ -326,7 +366,6 @@
         renderCollection();
     }
 
-    // BD local shop Search Links Generator
     function getShopLinks(perfumeName) {
         const query = encodeURIComponent(perfumeName);
         return {
@@ -336,12 +375,10 @@
         };
     }
 
-    // Auto Intelligence for Occasions & Fragrantica
     function fetchFragranticaDetails(name, price, type) {
         let dupeTarget = null;
         let occasions = ["🏢 Office/Formal", "🌆 Outdoor/Casual"];
         
-        // Dynamic Occasion Assign Logic
         const lowerName = name.toLowerCase();
         if (lowerName.includes('club de nuit') || lowerName.includes('sauvage') || lowerName.includes('aventus') || lowerName.includes('hawas')) {
             occasions = ["🏢 Office/Formal", "🏖️ Beach/Vacation", "🌆 Casual Day Out"];
@@ -379,7 +416,6 @@
         document.getElementById('modalPrice').innerText = `৳ ${Number(item.priceNumber).toLocaleString('bn-BD')}`;
         document.getElementById('modalType').innerText = item.type;
         
-        // BD Shops Search Links
         const shopLinks = getShopLinks(item.name);
         document.getElementById('modalShopLinks').innerHTML = `
             <a href="${shopLinks.shanjoy}" target="_blank">🔍 Shanjoy Perfumes-এ খুঁজুন</a>
@@ -387,9 +423,8 @@
             <a href="${shopLinks.perfumecenter}" target="_blank">🔍 Perfume Center-এ খুঁজুন</a>
         `;
 
-        // Occasions Render
         const occDiv = document.getElementById('modalOccasions');
-        occDiv.innerHTML = item.occasions.map(o => `<span class="occ-badge" style="font-size:13px; padding:5px 10px; background:#fef08a; color:#713f12;">${o}</span>`).join(' ');
+        occDiv.innerHTML = (item.occasions || []).map(o => `<span class="occ-badge" style="font-size:13px; padding:5px 10px; background:#fef08a; color:#713f12;">${o}</span>`).join(' ');
 
         const dupeElem = document.getElementById('modalDupeOf');
         if(item.dupeOf) {
@@ -399,14 +434,14 @@
             dupeElem.style.display = 'none';
         }
 
-        document.getElementById('modalTop').innerText = item.topNotes;
-        document.getElementById('modalMiddle').innerText = item.middleNotes;
-        document.getElementById('modalBase').innerText = item.baseNotes;
+        document.getElementById('modalTop').innerText = item.topNotes || 'N/A';
+        document.getElementById('modalMiddle').innerText = item.middleNotes || 'N/A';
+        document.getElementById('modalBase').innerText = item.baseNotes || 'N/A';
         
         const seasonDiv = document.getElementById('modalSeasons');
         seasonDiv.innerHTML = '';
         
-        item.seasons.forEach(s => {
+        (item.seasons || []).forEach(s => {
             const cssClass = s.recommended ? 'season-best' : 'season-avoid';
             const statusText = s.recommended ? '✓ Best Choice' : '✕ Not Ideal';
             
@@ -424,8 +459,6 @@
     function closeModal() {
         document.getElementById('detailsModal').style.display = 'none';
     }
-
-    renderCollection();
 </script>
 
 </body>
